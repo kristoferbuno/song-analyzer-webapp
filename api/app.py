@@ -3,7 +3,7 @@ import requests
 import json
 import random
 from bs4 import BeautifulSoup
-GENIUS_ACCESS_TOKEN = 'bWzIM9a6OfDq677y0tlNQY_qQI8QzYIDoZHmI4BrQCjp25AOoBqUqlnjo6oFW5K6'
+GENIUS_ACCESS_TOKEN = ''
 
 class Song:
 
