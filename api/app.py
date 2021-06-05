@@ -2,32 +2,38 @@ import nltk
 import requests
 import json
 import random
+import os
 from bs4 import BeautifulSoup
-GENIUS_ACCESS_TOKEN = ''
+import time
+from flask import Flask
+import configparser
+import conf
 
 class Song:
 
-    def __init__(self, title, author, lyrics: str = ""):
+    def __init__(self, title, author, genius_access_token):
         self.title = title
         self.author = author
         self.all_feature_dicts = {}
         self.final_tags = {}
-        if len(lyrics) == 0:
-            res = requests.get('http://api.genius.com/search?q=' + author + " " + title,
-                               headers={'Authorization': 'BEARER ' + GENIUS_ACCESS_TOKEN})
-            data = json.loads(res.text)
-            search_results = data['response']['hits']
-            selected_song = search_results[0]
-            self.genius_id = selected_song['result']['id']
+        res = requests.get('http://api.genius.com/search?q=' + author + " " + title,
+                           headers={'Authorization': 'BEARER ' + genius_access_token})
+        data = json.loads(res.text)
+        search_results = data['response']['hits']
+        selected_song = search_results[0]
+        self.genius_id = selected_song['result']['id']
 
-            song_res = requests.get('http://www.genius.com' + selected_song['result']['path'])
-            song_html = BeautifulSoup(song_res.text, 'html.parser')
-            [script.extract() for script in song_html('script')]
-            lyrics = song_html.find('div', class_='lyrics').get_text()
-            tokenized_lyrics = nltk.word_tokenize(lyrics)
-            self.lyrics = tokenized_lyrics
-        else:
-            self.lyrics = lyrics
+        song_res = requests.get('http://www.genius.com' + selected_song['result']['path'])
+        song_html = BeautifulSoup(song_res.text, 'html.parser')
+        [script.extract() for script in song_html('script')]
+
+        lyrics = [result for result in song_html.find_all('div')]
+        filtered_lyrics = filter(lambda x : 'class' in x.attrs.keys() and 'Lyrics' in x.attrs['class'][0], lyrics)
+        lyrics = ""
+        for lyric in filtered_lyrics:
+            lyrics += lyric.get_text()
+        tokenized_lyrics = nltk.word_tokenize(lyrics)
+        self.lyrics = tokenized_lyrics
         self.generate_all_features()
 
     def generate_all_features(self):
@@ -201,7 +207,7 @@ class TagClassifier:
         return self.target_tag
 
 
-def demo_trained_classifiers() -> []:
+def demo_trained_classifiers(api_key) -> []:
     # format for a song
     # {'title': '', 'artist': '',
     #  'tags': {'profanity': '', 'drugs': '', 'violence': '', 'sexual references': ''}}
@@ -330,214 +336,49 @@ def demo_trained_classifiers() -> []:
     songs = []
     tags = ['profanity', 'drugs', 'violence', 'sexual references']
     for song_metadata in song_metadata_list:
-        song = Song(song_metadata['title'], song_metadata['artist'])
+        song = Song(song_metadata['title'], song_metadata['artist'], api_key)
         [song.assign(tag, severity) for tag, severity in song_metadata['tags'].items()]
         songs.append(song)
     classifiers = [TagClassifier(tag, [(song, song.final_tags[tag]) for song in songs]) for tag in tags]
     return classifiers
 
-def test_accuracy():
-    # format for a song
-    # {'title': '', 'artist': '',
-    #  'tags': {'profanity': '', 'drugs': '', 'violence': '', 'sexual references': ''}}
+
+def create_app(test_config=None):
+    # create and configure the app
+    config = configparser.ConfigParser()
+    config.read('conf/dev.conf')
+    genius_key = config.get('DEFAULT', 'genius_access_token')
+    app = Flask(__name__, instance_relative_config=True)
     print("Training classifiers.")
-    song_metadata_list = [
-        {'title': "WAP", 'artist': "Cardi B",
-         'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'none', 'sexual references': 'frequent'}},
-        {'title': 'Lucy in the Sky with Diamonds', 'artist': 'The Beatles',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': "God's Plan", 'artist': 'Drake',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Marijuana', 'artist': 'Kid Cudi',
-         'tags': {'profanity': 'some', 'drugs': 'frequent', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'I Know', 'artist': 'Jay Z',
-         'tags': {'profanity': 'none', 'drugs': 'some', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'The Race', 'artist': 'Tay-K',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'frequent', 'sexual references': 'some'}},
-        {'title': 'I See the Light', 'artist': 'Mandy Moore & Zachary Levi',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Stargazing', 'artist': 'Travis Scott',
-         'tags': {'profanity': 'some', 'drugs': 'frequent', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'Headshot', 'artist': 'Lil Tjay',
-         'tags': {'profanity': 'some', 'drugs': 'frequent', 'violence': 'some', 'sexual references': 'frequent'}},
-        {'title': 'Next Right Thing', 'artist': 'Kristen Bell',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Rapstar', 'artist': 'Polo G',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'some', 'sexual references': 'frequent'}},
-        {'title': 'Montero (Call Me By Your Name)', 'artist': 'Lil Nas X',
-         'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'Leave the Door Open', 'artist': 'Silk Sonic',
-         'tags': {'profanity': 'none', 'drugs': 'some', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'Up', 'artist': 'Cardi B',
-         'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'none', 'sexual references': 'frequent'}},
-        {'title': 'Drivers License', 'artist': 'Olivia Rodrigo',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Forever After All', 'artist': 'Luke Combs',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'The Good Ones', 'artist': 'Gabby Barrett',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Titanium', 'artist': 'Dave',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'some', 'sexual references': 'frequent'}},
-        {'title': '34+35', 'artist': 'Ariana Grande',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'none', 'sexual references': 'frequent'}},
-        {'title': 'Therefore I Am', 'artist': 'Billie Eilish',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Made for You', 'artist': 'Jake Owen',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Streets', 'artist': 'Doja Cat',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Street Runner', 'artist': 'Rod Wave',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'What’s Your Country Song', 'artist': 'Thomas Rhett',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'some', 'sexual references': 'none'}},
-        {'title': 'Hell of a View', 'artist': 'Eric Church',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Somebody Like That', 'artist': 'Demi Pallas',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Hold On', 'artist': 'Justin Bieber',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Monsters', 'artist': 'All Time Low',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Dancing With The Devil', 'artist': 'Demi Lovato',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Gone', 'artist': 'Dierks Bentley',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Suge', 'artist': 'DaBaby',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'MIDDLE CHILD', 'artist': 'J. Cole',
-         'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'some', 'sexual references': 'some'}},
-        {'title': 'Ransom', 'artist': 'Lil Tecca',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'frequent', 'sexual references': 'none'}},
-        {'title': 'Better Now', 'artist': 'Post Malone',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Money', 'artist': 'Cardi B',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'some', 'sexual references': 'frequent'}},
-        {'title': 'Panini', 'artist': 'Lil Nas X',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'a lot', 'artist': '21 Savage',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'some', 'sexual references': 'some'}},
-        {'title': 'Lucid Dreams', 'artist': 'Juice WRLD',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Mo Bamba', 'artist': 'Sheck Wes',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'none', 'sexual references': 'frequent'}},
-        {'title': 'Envy Me', 'artist': 'Calboy',
-         'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'some', 'sexual references': 'none'}},
-        {'title': 'Trampoline', 'artist': 'Shaed',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': '3AM', 'artist': 'Russ',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'Life’s a Mess', 'artist': 'Juice WRLD & Halsey',
-         'tags': {'profanity': 'some', 'drugs': 'some', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Best Friend', 'artist': 'Rex Orange County',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Watermelon Sugar', 'artist': 'Harry Styles',
-         'tags': {'profanity': 'none', 'drugs': 'frequent', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Say So', 'artist': 'Doja Cat',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'some', 'sexual references': 'some'}},
-        {'title': 'The Box', 'artist': 'Roddy Ricch',
-         'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'Lonely', 'artist': 'Joel Corry',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Toosie Slide', 'artist': 'Drake',
-         'tags': {'profanity': 'some', 'drugs': 'none', 'violence': 'some', 'sexual references': 'none'}},
-        {'title': 'Savage', 'artist': 'Megan Thee Stallion',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'Ride It', 'artist': 'Regard',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'frequent'}},
-        {'title': 'Physical', 'artist': 'Dua Lipa',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'SICKO MODE', 'artist': 'Travis Scott',
-         'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'some', 'sexual references': 'none'}},
-        {'title': 'Bodak Yellow', 'artist': 'Cardi B',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'some', 'sexual references': 'frequent'}},
-        {'title': 'Havana', 'artist': 'Camila Cabello',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Stir Fry', 'artist': 'Migos',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'HUMBLE.', 'artist': 'Kendrick Lamar',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'none', 'sexual references': 'some'}},
-        {'title': 'Work', 'artist': 'Rihanna',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-        {'title': 'Panda', 'artist': 'Desiigner',
-         'tags': {'profanity': 'frequent', 'drugs': 'none', 'violence': 'some', 'sexual references': 'none'}},
-        {'title': 'Closer', 'artist': 'The Chainsmokers',
-         'tags': {'profanity': 'none', 'drugs': 'none', 'violence': 'none', 'sexual references': 'none'}},
-    ]
-    random.shuffle(song_metadata_list)
-    training_songs = []
-    tags = ['profanity', 'drugs', 'violence', 'sexual references']
-    for song_metadata in song_metadata_list:
-        song = Song(song_metadata['title'], song_metadata['artist'])
-        [song.assign(tag, severity) for tag, severity in song_metadata['tags'].items()]
-        training_songs.append(song)
-    random.shuffle(training_songs)
-    testing_songs = training_songs[:10]
-    training_songs = training_songs[10:]
-    classifiers = [TagClassifier(tag, [(song, song.final_tags[tag]) for song in training_songs]) for tag in tags]
-    print("Training complete!")
-    for classifier in classifiers:
-        tag_testing_set = [(song.get_features(classifier.target_tag), song.final_tags[classifier.target_tag]) for song in testing_songs]
-        print(f"Current testing tag is {classifier.target_tag}")
-        print(f"Accuracy is {nltk.classify.accuracy(classifier.classifier, tag_testing_set):.2f}\n")
-
-
-def training():
-    print("Training classifiers.")
-    classifiers = demo_trained_classifiers()
-    print("Training complete!.")
-    # lets test!
-    print("\nTest Results")
-    print("------------")
-    ts_stargazing = Song('Stargazing', 'Travis Scott')
-    [classifier.assign(ts_stargazing) for classifier in classifiers]
-    print("Stargazing by Travis Scott tags:", ts_stargazing.final_tags, "\n")
-
-    headshot = Song('Headshot', 'Lil Tjay')
-    [classifier.assign(headshot) for classifier in classifiers]
-    print("Headshot by lil Tjay tags:", headshot.final_tags, "\n")
-
-    rockstar = Song('Rockstar', 'Post Malone')
-    [classifier.assign(rockstar) for classifier in classifiers]
-    print("Rockstar by Post Malone tags:", rockstar.final_tags, "\n")
-
-    shoot = Song('Shoot', 'BlocBoy JB')
-    [classifier.assign(shoot) for classifier in classifiers]
-    print("Shoot by BlocBoy JB tags:", shoot.final_tags, "\n")
-
-    disney_song = Song('Next Right Thing', 'Kristen Bell')
-    [classifier.assign(disney_song) for classifier in classifiers]
-    print("Next Right Thing (Frozen 2) tags:", disney_song.final_tags)
-
-def console_interactive():
-    print("Training classifiers.")
-    classifiers = demo_trained_classifiers()
+    classifiers = demo_trained_classifiers(genius_key)
     print("Training complete.")
-    operate = True
-    while operate:
-        title = input("Please input a song name.\n")
-        artist = input("Please input the artist name.\n\n")
-        tester = Song(title, artist)
+    app.config.from_mapping(
+        SECRET_KEY='dev',
+        DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'),
+    )
+
+    if test_config is None:
+        # load the instance config, if it exists, when not testing
+        app.config.from_pyfile('config.py', silent=True)
+    else:
+        # load the test config if passed in
+        app.config.from_mapping(test_config)
+
+    # ensure the instance folder exists
+    try:
+        os.makedirs(app.instance_path)
+    except OSError:
+        pass
+
+    # a simple page that says hello
+    @app.route('/')
+    def hello():
+        return {'joe': 'fuck'}
+
+    @app.route('/songquery/<artist>/<title>/<apikey>')
+    def get_classifications(artist, title, apikey):
+        tester = Song(title, artist, apikey)
         [classifier.assign(tester) for classifier in classifiers]
-        print(f'{title} by {artist}', tester.final_tags, "\n")
-        next = input("Would you like to try another song? [Y/N]\n")
-        if next.upper() == 'Y':
-            continue
-        else:
-            operate = False
+        return tester.get_final_tags()
 
-
-def main():
-    print("Input 1 for a simple demo of the program. Input 2 for an interactive demo. Input 3 for a randomized accuracy sample test.")
-    intro_selection = input()
-    while intro_selection != '1' and intro_selection != '2' and intro_selection != '3':
-        intro_selection = input("Please enter a valid input.\n")
-    if intro_selection == '1':
-        training()
-    if intro_selection == '2':
-        console_interactive()
-    if intro_selection == '3':
-        test_accuracy()
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    main()
+    return app
