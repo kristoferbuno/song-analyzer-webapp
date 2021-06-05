@@ -9,6 +9,8 @@ from flask import Flask
 import configparser
 import conf
 
+app = Flask(__name__)
+
 class Song:
 
     def __init__(self, title, author, genius_access_token):
@@ -28,7 +30,7 @@ class Song:
         [script.extract() for script in song_html('script')]
 
         lyrics = [result for result in song_html.find_all('div')]
-        filtered_lyrics = filter(lambda x : 'class' in x.attrs.keys() and 'Lyrics' in x.attrs['class'][0], lyrics)
+        filtered_lyrics = filter(lambda x: 'class' in x.attrs.keys() and 'Lyrics' in x.attrs['class'][0], lyrics)
         lyrics = ""
         for lyric in filtered_lyrics:
             lyrics += lyric.get_text()
@@ -194,7 +196,6 @@ class TagClassifier:
         self.tagged_songs = intensity_tags
         self.training_set = [(song.get_features(self.target_tag), intensity) for (song, intensity) in self.tagged_songs]
         self.classifier = nltk.NaiveBayesClassifier.train(self.training_set)
-        self.classifier.show_most_informative_features(5)
 
     def predict(self, curr_song: Song) -> str:  # output is the intensity of the target tag within the lyrics
         result = self.classifier.classify(curr_song.get_features(self.target_tag))
@@ -348,7 +349,6 @@ def create_app(test_config=None):
     config = configparser.ConfigParser()
     config.read('conf/dev.conf')
     genius_key = config.get('DEFAULT', 'genius_access_token')
-    app = Flask(__name__, instance_relative_config=True)
     print("Training classifiers.")
     classifiers = demo_trained_classifiers(genius_key)
     print("Training complete.")
