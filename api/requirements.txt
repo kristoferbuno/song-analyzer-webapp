@@ -1,7 +1,9 @@
 wheel
 bs4
 flask
+flask-cors
 python-dotenv
 nltk
 requests
 gunicorn
+

@@ -6,10 +6,13 @@ import os
 from bs4 import BeautifulSoup
 import time
 from flask import Flask
+from flask_cors import CORS, cross_origin
 import configparser
 import conf
 
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 class Song:
 
@@ -374,6 +377,8 @@ def create_app(test_config=None):
     @app.route('/')
     def hello():
         return {'joe': 'fuck'}
+
+    @cross_origin(origin='localhost', headers=['Content- Type', 'Authorization'])
 
     @app.route('/songquery/<artist>/<title>/<apikey>')
     def get_classifications(artist, title, apikey):
