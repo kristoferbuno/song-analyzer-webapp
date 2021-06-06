@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Grid, Card, Typography, TextField, Button, InputAdornment, AccountCircle, CircularProgress } from '@material-ui/core'
+import { Grid, Card, Typography, TextField, Button, InputAdornment, AccountCircle, CircularProgress, Box } from '@material-ui/core'
 import blue from '@material-ui/core/colors/blue';
 import './App.css';
 import '@fontsource/roboto';
@@ -28,6 +28,8 @@ interface State {
     apikey: string;
     loaded_song: Song;
     loading: Boolean;
+    validate: Boolean;
+    invalid_api_key: Boolean;
 }
 
 class Song {
@@ -57,7 +59,14 @@ class Song {
 class App extends Component<State> {
     constructor(props) {
     super(props)
-        this.state = {'artist': '', 'title': '', 'apikey': '', 'loading': false}
+        this.state = {
+            'artist': '',
+            'title': '',
+            'apikey': '',
+            'loading': false,
+            'validate': false,
+            'invalid_api_key': false
+        }
     }
 
     handleFieldChange(event) {
@@ -67,18 +76,35 @@ class App extends Component<State> {
     }
 
     handleSubmit() {
-        let path = `http://localhost:8000/songquery/${this.state.artist}/${this.state.title}/${this.state.apikey}`
-        console.log(path)
-        this.loading = true;
+        this.state.validate = true;
         this.setState({});
-        fetch(path, [, {'credentials': 'include'}])
-            .then(response => response.json())
-            .then(data => {
-                console.log(data)
-                this.loading = false;
-                this.loaded_song = new Song(data.artist, data.title, data.drugs, data.profanity, data['sexual references'], data.violence);
-                this.setState({});
-            })
+        if (this.state.artist.length > 0
+            && this.state.title.length > 0
+            && this.state.apikey.length > 0)
+            {
+                this.invalid_api_key = false;
+                this.loading = true;
+                let path = `http://localhost:8000/songquery/${this.state.artist}/${this.state.title}/${this.state.apikey}`
+                fetch(path, [, {'credentials': 'include'}])
+                .then(response => response.json())
+                .then(data => {
+                    this.loading = false;
+                    if (data.meta == 401)
+                    {
+                        this.state.invalid_api_key = true;
+                        this.state.validate = true;
+                        this.setState({});  
+                    }
+                    else if (data.meta == 200)
+                    {
+                        this.state.invalid_api_key = false;
+                        this.validate = false;
+                        console.log(data)
+                        this.loaded_song = new Song(data.artist, data.title, data.drugs, data.profanity, data['sexual references'], data.violence);
+                        this.setState({});  
+                    }
+                })
+            }
     }
 
     renderInfo() {
@@ -101,11 +127,11 @@ class App extends Component<State> {
                 <Typography variant="h3" component="h2" gutterBottom>
                     Put in a song
                 </Typography>
-                <TextField variant="filled" id="artist" label="Artist" onChange={(event) => this.handleFieldChange(event)}/>
+                <TextField error={this.state.validate && this.state.artist.length == 0} variant="filled" id="artist" label="Artist" onChange={(event) => this.handleFieldChange(event)}/>
                 <br></br>
-                <TextField variant="filled" id="title" label="Song title" onChange={(event) => this.handleFieldChange(event)}/>
+                <TextField error={this.state.validate && this.state.title.length == 0} variant="filled" id="title" label="Song title" onChange={(event) => this.handleFieldChange(event)}/>
                 <br></br>
-                <TextField variant="filled" id="apikey" label="Genius API Key" onChange={(event) => this.handleFieldChange(event)}/>
+                <TextField error={this.state.validate && this.state.apikey.length == 0 || this.state.invalid_api_key} variant="filled" id="apikey" label="Genius API Key" onChange={(event) => this.handleFieldChange(event)}/>
                 <br></br>
                 <Button variant="contained" style={{justify:"right"}} color="primary" onClick={() => this.handleSubmit()}>
                     Submit
@@ -142,25 +168,26 @@ class App extends Component<State> {
     render() {
         return (
             <MuiThemeProvider theme={theme}>
-                <Grid container direction="column"
-                alignItems="center"
-                jusitfy="space-evenly" spacing={10} xs={12}>
-                <Grid item container direction="row"
+                <Box mt={8}>
+                    <Grid container direction="column"
                     alignItems="center"
-                    justify="space-evenly" spacing={2}>
-                    <Grid item xs={12} lg={5} alignItems="stretch">
-                    {this.renderInfo()}
+                    jusitfy="space-evenly" spacing={10} xs={12}>
+                        <Grid item container direction="row"
+                            alignItems="center"
+                            justify="space-evenly" spacing={2}>
+                            <Grid item xs={12} lg={5} alignItems="stretch">
+                            {this.renderInfo()}
+                            </Grid>
+                            <Grid item xs={12} lg={5} alignItems="stretch">
+                            {this.renderInputCard()}
+                            </Grid>
+                        </Grid>
+                        <Grid item xs={5}>
+                            {this.renderSongData()}
+                        </Grid>
                     </Grid>
-                    <Grid item xs={12} lg={5} alignItems="stretch">
-                    {this.renderInputCard()}
-                    </Grid>
-                </Grid>
-                <Grid item xs={5}>
-                    {this.renderSongData()}
-                </Grid>
-            </Grid>
+                </Box>
             </MuiThemeProvider>
-
         );
     }
 }
