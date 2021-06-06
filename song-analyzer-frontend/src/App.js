@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
-import { Grid, Card, Typography, TextField, Button, InputAdornment, AccountCircle, CircularProgress, Box } from '@material-ui/core'
+import { Grid, Card, Typography, TextField, Button, Link, InputAdornment, AccountCircle, CircularProgress, Box, CardActions, CardContent } from '@material-ui/core'
 import blue from '@material-ui/core/colors/blue';
 import './App.css';
 import '@fontsource/roboto';
 import '@fontsource/abeezee';
 import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 
 const theme = createMuiTheme({
     typography: {
@@ -22,18 +23,8 @@ const theme = createMuiTheme({
     }
 });
 
-interface State {
-    artist: string;
-    title: string;
-    apikey: string;
-    loaded_song: Song;
-    loading: Boolean;
-    validate: Boolean;
-    invalid_api_key: Boolean;
-}
-
 class Song {
-    constructor(artist, title, drugs, profanity, sex_ref, violence)
+    constructor(artist, title, drugs, profanity, sex_ref, violence, url)
     {
         this.artist = artist;
         this.title = title;
@@ -41,6 +32,7 @@ class Song {
         this.profanity = profanity;
         this.sex_ref = sex_ref;
         this.violence = violence;
+        this.url = url;
     }
 
     formatInfo() {
@@ -54,6 +46,16 @@ class Song {
         if (!this.violence.includes("none")) info.push(capitalizeFirstLetter(this.violence + " violent references"))
         return info;
     }
+}
+
+interface State {
+    artist: string;
+    title: string;
+    apikey: string;
+    loaded_song: Song;
+    loading: Boolean;
+    validate: Boolean;
+    invalid_api_key: Boolean;
 }
 
 class App extends Component<State> {
@@ -89,18 +91,24 @@ class App extends Component<State> {
                 .then(response => response.json())
                 .then(data => {
                     this.loading = false;
-                    if (data.meta == 401)
+                    if (data.meta === 401)
                     {
                         this.state.invalid_api_key = true;
                         this.state.validate = true;
                         this.setState({});  
                     }
-                    else if (data.meta == 200)
+                    else if (data.meta === 200)
                     {
                         this.state.invalid_api_key = false;
                         this.validate = false;
                         console.log(data)
-                        this.loaded_song = new Song(data.artist, data.title, data.drugs, data.profanity, data['sexual references'], data.violence);
+                        this.loaded_song = new Song(data.artist,
+                            data.title,
+                            data.drugs,
+                            data.profanity,
+                            data['sexual references'],
+                            data.violence,
+                            data.url);
                         this.setState({});  
                     }
                 })
@@ -127,11 +135,12 @@ class App extends Component<State> {
                 <Typography variant="h3" component="h2" gutterBottom>
                     Put in a song
                 </Typography>
-                <TextField error={this.state.validate && this.state.artist.length == 0} variant="filled" id="artist" label="Artist" onChange={(event) => this.handleFieldChange(event)}/>
+                <TextField error={this.state.validate && this.state.artist.length === 0} variant="filled" id="artist" label="Artist"
+                onChange={(event) => this.handleFieldChange(event)}/>
                 <br></br>
-                <TextField error={this.state.validate && this.state.title.length == 0} variant="filled" id="title" label="Song title" onChange={(event) => this.handleFieldChange(event)}/>
+                <TextField error={this.state.validate && this.state.title.length === 0} variant="filled" id="title" label="Song title" onChange={(event) => this.handleFieldChange(event)}/>
                 <br></br>
-                <TextField error={this.state.validate && this.state.apikey.length == 0 || this.state.invalid_api_key} variant="filled" id="apikey" label="Genius API Key" onChange={(event) => this.handleFieldChange(event)}/>
+                <TextField error={(this.state.validate && this.state.apikey.length === 0) || this.state.invalid_api_key} variant="filled" id="apikey" label="Genius API Key" onChange={(event) => this.handleFieldChange(event)}/>
                 <br></br>
                 <Button variant="contained" style={{justify:"right"}} color="primary" onClick={() => this.handleSubmit()}>
                     Submit
@@ -152,14 +161,21 @@ class App extends Component<State> {
                 </Typography>
                 )
             })
-            return <Card id="input-card" elevation={5}>
-                <Typography variant="h2" component="h2">
-                    {this.loaded_song.title}
-                </Typography>
-                <Typography variant="h4" component="h2" gutterBottom>
-                    by {this.loaded_song.artist}
-                </Typography>
-                {infos}
+            return <Card id="info-card" elevation={5}>
+                <CardContent>
+                    <Typography variant="h2" component="h2">
+                        {this.loaded_song.title}
+                    </Typography>
+                    <Typography variant="h4" component="h2" gutterBottom>
+                        by {this.loaded_song.artist}
+                    </Typography>
+                        {infos}
+                </CardContent>
+                <CardActions>
+                <Link href={this.loaded_song.url} target="_blank">
+                    <Button size="small" to={this.loaded_song.url} startIcon={<OpenInNewIcon />}>Full lyrics at Genius</Button>
+                </Link>
+                </CardActions>
             </Card>;
         }
         else return;
@@ -171,7 +187,7 @@ class App extends Component<State> {
                 <Box mt={8}>
                     <Grid container direction="column"
                     alignItems="center"
-                    jusitfy="space-evenly" spacing={10} xs={12}>
+                    jusitfy="space-evenly" spacing={4} xs={12}>
                         <Grid item container direction="row"
                             alignItems="center"
                             justify="space-evenly" spacing={2}>

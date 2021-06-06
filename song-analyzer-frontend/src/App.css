@@ -40,6 +40,13 @@
   color: white
 }
 
+#info-card {
+  border-width: thin;
+  border-color: #555555;
+  background-color: #333333;
+  color: white
+}
+
 .MuiInputBase-input {
   color: white
 }
