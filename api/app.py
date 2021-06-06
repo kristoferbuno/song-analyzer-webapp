@@ -17,8 +17,6 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 class Song:
 
     def __init__(self, title, author, genius_access_token):
-        self.title = title
-        self.author = author
         self.all_feature_dicts = {}
         self.final_tags = {}
         res = requests.get('http://api.genius.com/search?q=' + author + " " + title,
@@ -36,11 +34,8 @@ class Song:
 
         lyrics = [result for result in song_html.find_all('div')]
         filtered_lyrics = filter(lambda x: 'class' in x.attrs.keys() and 'Lyrics' in x.attrs['class'][0], lyrics)
-        lyrics = ""
-        for lyric in filtered_lyrics:
-            lyrics += lyric.get_text()
-        tokenized_lyrics = nltk.word_tokenize(lyrics)
-        self.lyrics = tokenized_lyrics
+        lyrics = ' '.join([lyric.get_text() for lyric in filtered_lyrics])
+        self.lyrics = nltk.word_tokenize(lyrics)
         self.generate_all_features()
 
     def generate_all_features(self):
@@ -158,35 +153,6 @@ class Song:
 
     def get_features(self, tag: str):
         return self.all_feature_dicts[tag]
-
-    def analyze(self):  # sets song's final tags to a list of tuples (tag, intensity)
-        tag_intensities = []  # list of tuples to hold intensities of tags in the song
-
-        profanity_trainers = []
-        profanity_classifier = TagClassifier("profanity", profanity_trainers)
-        p_prediction = profanity_classifier.predict(self)
-        if p_prediction != "none":
-            tag_intensities.append(("profanity", p_prediction))
-
-        drug_trainers = []
-        drug_classifier = TagClassifier("drugs", drug_trainers)
-        d_prediction = drug_classifier.predict(self)
-        if d_prediction != "none":
-            tag_intensities.append(("drugs", d_prediction))
-
-        violence_trainers = []
-        violence_classifier = TagClassifier("violence", violence_trainers)
-        v_prediction = violence_classifier.predict(self)
-        if v_prediction != "none":
-            tag_intensities.append(("violence", v_prediction))
-
-        s_reference_trainers = []
-        s_reference_classifier = TagClassifier("sexual references", s_reference_trainers)
-        s_prediction = s_reference_classifier.predict(self)
-        if s_prediction != "none":
-            tag_intensities.append(("sexual references", s_prediction))
-
-        self.final_tags = tag_intensities
 
     def assign(self, tag_type: str, severity: str):
         self.final_tags[tag_type] = severity
@@ -348,6 +314,18 @@ def demo_trained_classifiers(api_key) -> []:
     classifiers = [TagClassifier(tag, [(song, song.final_tags[tag]) for song in songs]) for tag in tags]
     return classifiers
 
+def is_valid_api(key):
+    res = requests.get('http://api.genius.com/search?q=' + "travis scott" + " " + "stargazing",
+        headers={'Authorization': 'BEARER ' + key})
+    data = json.loads(res.text)
+    print(data)
+    print('error' in data)
+    if 'error' in data:
+        return False
+    else:
+        return True
+    
+
 
 def create_app(test_config=None):
     # create and configure the app
@@ -378,17 +356,22 @@ def create_app(test_config=None):
     # a simple page that says hello
     @app.route('/')
     def hello():
-        return {'joe': 'fuck'}
+        return {'hi': 'hi'}
 
     @cross_origin(origin='localhost', headers=['Content- Type', 'Authorization'])
 
     @app.route('/songquery/<artist>/<title>/<apikey>')
     def get_classifications(artist, title, apikey):
+        if not is_valid_api(apikey):
+            obj = {}
+            obj['meta'] = 401
+            return obj
         tester = Song(title, artist, apikey)
         [classifier.assign(tester) for classifier in classifiers]
         obj = tester.get_final_tags()
         obj['artist'] = tester.author
         obj['title'] = tester.title
+        obj['meta'] = 200
         return obj
 
     return app
