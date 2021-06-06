@@ -31,8 +31,10 @@ interface State {
 }
 
 class Song {
-    constructor(drugs, profanity, sex_ref, violence)
+    constructor(artist, title, drugs, profanity, sex_ref, violence)
     {
+        this.artist = artist;
+        this.title = title;
         this.drugs = drugs;
         this.profanity = profanity;
         this.sex_ref = sex_ref;
@@ -72,8 +74,9 @@ class App extends Component<State> {
         fetch(path, [, {'credentials': 'include'}])
             .then(response => response.json())
             .then(data => {
+                console.log(data)
                 this.loading = false;
-                this.loaded_song = new Song(data.drugs, data.profanity, data['sexual references'], data.violence);
+                this.loaded_song = new Song(data.artist, data.title, data.drugs, data.profanity, data['sexual references'], data.violence);
                 this.setState({});
             })
     }
@@ -123,9 +126,12 @@ class App extends Component<State> {
                 </Typography>
                 )
             })
-            return <Card id="input-card">
-                <Typography variant="h3" component="h2" gutterBottom>
-                    About this song
+            return <Card id="input-card" elevation={5}>
+                <Typography variant="h2" component="h2">
+                    {this.loaded_song.title}
+                </Typography>
+                <Typography variant="h4" component="h2" gutterBottom>
+                    by {this.loaded_song.artist}
                 </Typography>
                 {infos}
             </Card>;
