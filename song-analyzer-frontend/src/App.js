@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Grid, Card, Typography, TextField, Button, Link, InputAdornment, AccountCircle, CircularProgress, Box, CardActions, CardContent } from '@material-ui/core'
+import { Grid, Container, Card, Typography, TextField, Button, Link, InputAdornment, AccountCircle, CircularProgress, Box, CardActions, CardContent } from '@material-ui/core'
 import blue from '@material-ui/core/colors/blue';
 import './App.css';
 import '@fontsource/roboto';
@@ -100,7 +100,7 @@ class App extends Component<State> {
                     else if (data.meta === 200)
                     {
                         this.state.invalid_api_key = false;
-                        this.validate = false;
+                        this.state.validate = false;
                         console.log(data)
                         this.loaded_song = new Song(data.artist,
                             data.title,
@@ -183,7 +183,7 @@ class App extends Component<State> {
 
     render() {
         return (
-            <MuiThemeProvider theme={theme}>
+            [<MuiThemeProvider theme={theme}>
                 <Box mt={8}>
                     <Grid container direction="column"
                     alignItems="center"
@@ -203,8 +203,19 @@ class App extends Component<State> {
                         </Grid>
                     </Grid>
                 </Box>
-            </MuiThemeProvider>
+            </MuiThemeProvider>]
         );
+    }
+
+    renderFooter() {
+        return <Box bgcolor="#333333">
+            <Container>
+                <Grid container xs={12}>
+                sheeit
+
+                </Grid>
+            </Container>
+        </Box>
     }
 }
 
