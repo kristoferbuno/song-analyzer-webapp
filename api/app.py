@@ -27,6 +27,8 @@ class Song:
         search_results = data['response']['hits']
         selected_song = search_results[0]
         self.genius_id = selected_song['result']['id']
+        self.author = selected_song['result']['primary_artist']['name']
+        self.title = selected_song['result']['title']
 
         song_res = requests.get('http://www.genius.com' + selected_song['result']['path'])
         song_html = BeautifulSoup(song_res.text, 'html.parser')
@@ -384,6 +386,9 @@ def create_app(test_config=None):
     def get_classifications(artist, title, apikey):
         tester = Song(title, artist, apikey)
         [classifier.assign(tester) for classifier in classifiers]
-        return tester.get_final_tags()
+        obj = tester.get_final_tags()
+        obj['artist'] = tester.author
+        obj['title'] = tester.title
+        return obj
 
     return app
