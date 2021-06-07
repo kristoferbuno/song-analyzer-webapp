@@ -374,7 +374,7 @@ def create_app(test_config=None):
     def hello():
         return {'hi': 'hi'}
 
-    @cross_origin(origin='localhost', headers=['Content- Type', 'Authorization'])
+    @cross_origin(origin='*', headers=['Content-Type', 'Authorization'])
 
     @app.route('/songquery/<artist>/<title>/<apikey>')
     def get_classifications(artist, title, apikey):
