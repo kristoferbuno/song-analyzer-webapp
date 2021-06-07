@@ -6,4 +6,6 @@ python-dotenv
 nltk
 requests
 gunicorn
-pickle
+ndg-httpsclient
+pyopenssl
+pyasn1
