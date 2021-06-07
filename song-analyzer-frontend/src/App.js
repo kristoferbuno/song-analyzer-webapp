@@ -86,7 +86,7 @@ class App extends Component<State> {
             {
                 this.invalid_api_key = false;
                 this.loading = true;
-                let path = `http://localhost:8000/songquery/${this.state.artist}/${this.state.title}/${this.state.apikey}`
+                let path = `flask-service.j894ir4voshjs.us-east-1.cs.amazonlightsail.com/${this.state.artist}/${this.state.title}/${this.state.apikey}`
                 fetch(path, [, {'credentials': 'include'}])
                 .then(response => response.json())
                 .then(data => {
