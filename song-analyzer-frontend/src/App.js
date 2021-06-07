@@ -86,8 +86,8 @@ class App extends Component<State> {
             {
                 this.invalid_api_key = false;
                 this.loading = true;
-                let path = `flask-service.j894ir4voshjs.us-east-1.cs.amazonlightsail.com/${this.state.artist}/${this.state.title}/${this.state.apikey}`
-                fetch(path, [, {'credentials': 'include'}])
+                let path = `http://flask-service.j894ir4voshjs.us-east-1.cs.amazonlightsail.com/${this.state.artist}/${this.state.title}/${this.state.apikey}`
+                fetch(path, [{'mode': 'cors', 'credentials': 'include'}])
                 .then(response => response.json())
                 .then(data => {
                     this.loading = false;
