@@ -3,12 +3,14 @@ import requests
 import json
 import random
 import os
+from os import path
 from bs4 import BeautifulSoup
 import time
 from flask import Flask
 from flask_cors import CORS, cross_origin
 import configparser
 import conf
+import pickle
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -184,6 +186,11 @@ def demo_trained_classifiers(api_key) -> []:
     # format for a song
     # {'title': '', 'artist': '',
     #  'tags': {'profanity': '', 'drugs': '', 'violence': '', 'sexual references': ''}}
+    if (path.exists('pickle/classifiers.pkl')):
+        pklfile = open('pickle/classifiers.pkl', 'rb')
+        classifiers = pickle.load(pklfile)
+        pklfile.close()
+        return classifiers
     song_metadata_list = [
         {'title': "WAP", 'artist': "Cardi B",
          'tags': {'profanity': 'frequent', 'drugs': 'some', 'violence': 'none', 'sexual references': 'frequent'}},
@@ -312,15 +319,22 @@ def demo_trained_classifiers(api_key) -> []:
         song = Song(song_metadata['title'], song_metadata['artist'], api_key)
         [song.assign(tag, severity) for tag, severity in song_metadata['tags'].items()]
         songs.append(song)
+        print(song_metadata['title'] + " trained")
     classifiers = [TagClassifier(tag, [(song, song.final_tags[tag]) for song in songs]) for tag in tags]
+    filename = r'pickle/'
+    if not os.path.exists(filename):
+        os.makedirs(filename)
+    output = open(os.path.join(filename, r'classifiers.pkl'), 'w+b')
+    print('Pickling classifier data')
+    pickle.dump(classifiers, output)
+    output.close()
+    print('Classifiers have been pickled')
     return classifiers
 
 def is_valid_api(key):
     res = requests.get('http://api.genius.com/search?q=' + "travis scott" + " " + "stargazing",
         headers={'Authorization': 'BEARER ' + key})
     data = json.loads(res.text)
-    print(data)
-    print('error' in data)
     if 'error' in data:
         return False
     else:
@@ -329,7 +343,8 @@ def is_valid_api(key):
 
 
 def create_app(test_config=None):
-    # create and configure the app
+    nltk.download('punkt')
+    print('punkt downloaded')
     config = configparser.ConfigParser()
     config.read('conf/dev.conf')
     genius_key = config.get('DEFAULT', 'genius_access_token')

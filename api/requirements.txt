@@ -6,4 +6,4 @@ python-dotenv
 nltk
 requests
 gunicorn
-
+pickle
